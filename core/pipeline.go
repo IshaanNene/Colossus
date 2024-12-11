@@ -1,28 +1,36 @@
-// pipeline.go
 package core
 
-// Pipeline represents the instruction pipeline
+import "colossus/isa"
+
 type Pipeline struct {
 	fetchedInstruction uint32
 }
 
-// NewPipeline creates a new Pipeline instance
 func NewPipeline() *Pipeline {
 	return &Pipeline{}
 }
 
-// Fetch retrieves the next instruction from memory (this is simplified for now)
-func (pipeline *Pipeline) Fetch() uint32 {
-	// In a full implementation, you'd fetch the instruction from memory using the PC
-	return pipeline.fetchedInstruction
+func (pipeline *Pipeline) Fetch(cpu *CPU) {
+	pipeline.fetchedInstruction = cpu.MMU.ReadWord(cpu.Registers[15])
+	cpu.Registers[15] += 4
 }
 
-// Decode decodes the fetched instruction
-func (pipeline *Pipeline) Decode() uint32 {
-	return pipeline.fetchedInstruction // Decoding would occur here in more detail
+func (pipeline *Pipeline) Decode() isa.Instruction {
+	return isa.DecodeInstruction(pipeline.fetchedInstruction)
 }
 
-// Execute executes the decoded instruction
 func (pipeline *Pipeline) Execute(cpu *CPU) {
-	cpu.Step() // In reality, this would involve much more detailed stages of execution
+	instruction := pipeline.Decode()
+	var handler InstructionHandler
+
+	switch instruction.(type) {
+	case isa.ARMv7Instruction:
+		handler = &ARMv7InstructionHandler{Instruction: instruction.(isa.ARMv7Instruction)}
+	case isa.ThumbInstruction:
+		handler = &ThumbInstructionHandler{Instruction: instruction.(isa.ThumbInstruction)}
+	default:
+		return
+	}
+
+	handler.Execute(cpu)
 }
